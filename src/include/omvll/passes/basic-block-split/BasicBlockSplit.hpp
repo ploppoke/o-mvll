@@ -9,7 +9,7 @@
 
 namespace omvll {
 
-struct BasicBlockSplit : llvm::PassInfoMixin<BasicBlockSplit> {
+struct BasicBlockSplit : llvm::OptionalPassInfoMixin<BasicBlockSplit> {
   llvm::PreservedAnalyses run(llvm::Module &M,
                               llvm::ModuleAnalysisManager &MAM);
 

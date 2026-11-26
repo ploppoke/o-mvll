@@ -9,7 +9,7 @@
 
 namespace omvll {
 
-struct IndirectBranch : llvm::PassInfoMixin<IndirectBranch> {
+struct IndirectBranch : llvm::OptionalPassInfoMixin<IndirectBranch> {
   llvm::PreservedAnalyses run(llvm::Module &M,
                               llvm::ModuleAnalysisManager &MAM);
 

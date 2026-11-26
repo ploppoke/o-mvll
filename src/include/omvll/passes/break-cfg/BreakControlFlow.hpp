@@ -19,7 +19,7 @@ namespace omvll {
 class Jitter;
 
 // See https://obfuscator.re/omvll/passes/control-flow-breaking/ for details.
-struct BreakControlFlow : llvm::PassInfoMixin<BreakControlFlow> {
+struct BreakControlFlow : llvm::OptionalPassInfoMixin<BreakControlFlow> {
   llvm::PreservedAnalyses run(llvm::Module &M,
                               llvm::ModuleAnalysisManager &FAM);
 

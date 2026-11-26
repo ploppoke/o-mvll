@@ -9,7 +9,7 @@
 
 namespace omvll {
 
-struct IndirectCall : llvm::PassInfoMixin<IndirectCall> {
+struct IndirectCall : llvm::OptionalPassInfoMixin<IndirectCall> {
   llvm::PreservedAnalyses run(llvm::Module &M,
                               llvm::ModuleAnalysisManager &MAM);
 

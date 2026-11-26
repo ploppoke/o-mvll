@@ -9,7 +9,7 @@
 
 namespace omvll {
 
-struct FunctionOutline : llvm::PassInfoMixin<FunctionOutline> {
+struct FunctionOutline : llvm::OptionalPassInfoMixin<FunctionOutline> {
   llvm::PreservedAnalyses run(llvm::Module &M,
                               llvm::ModuleAnalysisManager &MAM);
 

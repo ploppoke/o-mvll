@@ -30,9 +30,9 @@
 // FLAT-ARM:           mov	r1, r2
 
 // FLAT-THUMB-LABEL: check_password:
-// FLAT-THUMB:         ldr	r1, [pc, #-4]
+// FLAT-THUMB:         ldr	r1, [pc, #0]
 // FLAT-THUMB:         bx	r1
-// FLAT-THUMB:         mov	r1, r2
+// FLAT-THUMB:         movs	r1, r2
 
 int check_password(const char* passwd, unsigned len) {
   if (len != 5) {

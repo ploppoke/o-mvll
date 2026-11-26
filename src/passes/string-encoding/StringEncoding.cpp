@@ -46,13 +46,7 @@ static constexpr auto CtorPrefixName = "__omvll_ctor_";
 namespace omvll {
 
 inline bool isEligible(const GlobalVariable &G) {
-  if (G.isNullValue() || G.isZeroValue())
-    return false;
-
-  if (!(G.isConstant() && G.hasInitializer()))
-    return false;
-
-  return true;
+  return G.isConstant() && G.hasInitializer();
 }
 
 inline bool isEligible(const ConstantDataSequential &CDS) {

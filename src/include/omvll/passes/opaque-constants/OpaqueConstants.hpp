@@ -29,7 +29,7 @@ struct OpaqueContext {
 };
 
 // See https://obfuscator.re/omvll/passes/opaque-constants for details.
-struct OpaqueConstants : llvm::PassInfoMixin<OpaqueConstants> {
+struct OpaqueConstants : llvm::OptionalPassInfoMixin<OpaqueConstants> {
   llvm::PreservedAnalyses run(llvm::Module &M,
                               llvm::ModuleAnalysisManager &FAM);
   bool runOnBasicBlock(llvm::BasicBlock &BB, OpaqueConstantsOpt *Opt);

@@ -6,6 +6,7 @@
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallSet.h"
+#include "llvm/ADT/StringRef.h"
 #include "llvm/Demangle/Demangle.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Dominators.h"
@@ -93,7 +94,23 @@ static bool canReturnTwice(const Function &F) {
   return false;
 }
 
-template <class IRBTy> void EmitDefaultCaseAssembly(IRBTy &IRB, Triple TT) {
+static bool IsThumbMode(const Function &F, const Triple &TT) {
+  bool Thumb = TT.isThumb();
+  StringRef Features = F.getFnAttribute("target-features").getValueAsString();
+  while (!Features.empty()) {
+    auto [Feature, Rest] = Features.split(',');
+    if (Feature == "+thumb-mode")
+      Thumb = true;
+    else if (Feature == "-thumb-mode")
+      Thumb = false;
+    Features = Rest;
+  }
+  return Thumb;
+}
+
+template <class IRBTy>
+void EmitDefaultCaseAssembly(IRBTy &IRB, const Function &F) {
+  const Triple TT(F.getParent()->getTargetTriple());
   // clang-format off
   auto *FType = FunctionType::get(IRB.getVoidTy(), false);
   if (TT.isAArch64()) {
@@ -116,6 +133,21 @@ template <class IRBTy> void EmitDefaultCaseAssembly(IRBTy &IRB, Triple TT) {
       FType,
       R"delim(
         nop;
+        .byte 0xF1, 0xFF;
+        .byte 0xF2, 0xA2;
+      )delim",
+      "",
+      /* hasSideEffects */ true,
+      /* isStackAligned */ true
+    ));
+  } else if ((TT.isARM() || TT.isThumb()) && IsThumbMode(F, TT)) {
+    IRB.CreateCall(FType, InlineAsm::get(
+      FType,
+      R"delim(
+        .p2align 2;
+        ldr r1, [pc, #0];
+        bx r1;
+        movs r1, r2;
         .byte 0xF1, 0xFF;
         .byte 0xF2, 0xA2;
       )delim",
@@ -227,7 +259,8 @@ bool ControlFlowFlattening::runOnFunction(Function &F) {
       }
 
       // Handle Branch
-      if (auto *Branch = dyn_cast<BranchInst>(Pred->getTerminator())) {
+      Instruction *Branch = Pred->getTerminator();
+      if (isa<UncondBrInst, CondBrInst>(Branch)) {
         for (size_t Idx = 0; Idx < Branch->getNumSuccessors(); ++Idx) {
           if (Branch->getSuccessor(Idx) == BB)
             Branch->setSuccessor(Idx, Trampoline);
@@ -248,7 +281,7 @@ bool ControlFlowFlattening::runOnFunction(Function &F) {
     }
 
     // Branch the Trampoline to the original BasicBlock.
-    BranchInst::Create(BB, Trampoline);
+    UncondBrInst::Create(BB, Trampoline);
   }
 
   for (BasicBlock &BB : F) {
@@ -282,29 +315,22 @@ bool ControlFlowFlattening::runOnFunction(Function &F) {
     return false;
   }
 
-  if (auto *Branch = dyn_cast<BranchInst>(EntryBlock->getTerminator())) {
-    if (Branch->isConditional()) {
-      BasicBlock *EntrySplit =
-          EntryBlock->splitBasicBlockBefore(Branch, "EntrySplit");
-      FlattedBBs.insert(FlattedBBs.begin(), EntryBlock);
+  if (auto *Branch = dyn_cast<CondBrInst>(EntryBlock->getTerminator())) {
+    BasicBlock *EntrySplit =
+        EntryBlock->splitBasicBlockBefore(Branch, "EntrySplit");
+    FlattedBBs.insert(FlattedBBs.begin(), EntryBlock);
 
 #ifdef OMVLL_DEBUG
-        for (Instruction &I : *EntrySplit) {
-          SDEBUG("[{}][EntrySplit] {}", ControlFlowFlattening::name(),
-                 ToString(I));
-        }
+    for (Instruction &I : *EntrySplit) {
+      SDEBUG("[{}][EntrySplit] {}", ControlFlowFlattening::name(), ToString(I));
+    }
 
-        for (Instruction &I : *EntryBlock) {
-          SDEBUG("[{}][EntryBlock] {}", ControlFlowFlattening::name(),
-                 ToString(I));
-        }
+    for (Instruction &I : *EntryBlock) {
+      SDEBUG("[{}][EntryBlock] {}", ControlFlowFlattening::name(), ToString(I));
+    }
 #endif
 
-        EntryBlock = EntrySplit;
-    } else {
-      SWARN("[{}] Found condition that is not an instruction",
-            ControlFlowFlattening::name());
-    }
+    EntryBlock = EntrySplit;
   } else if (auto *Switch = dyn_cast<SwitchInst>(EntryBlock->getTerminator())) {
     BasicBlock *EntrySplit =
         EntryBlock->splitBasicBlockBefore(Switch, "EntrySplit");
@@ -380,8 +406,7 @@ bool ControlFlowFlattening::runOnFunction(Function &F) {
   EntryIR.CreateBr(FlatLoopEntry);
   FlatLoopEndIR.CreateBr(FlatLoopEntry);
 
-  EmitDefaultCaseAssembly(DefaultCaseIR,
-                          Triple(F.getParent()->getTargetTriple()));
+  EmitDefaultCaseAssembly(DefaultCaseIR, F);
   DefaultCaseIR.CreateBr(FlatLoopEnd);
 
   SwitchInst *Switch = FlatLoopEntryIR.CreateSwitch(LoadSwitchVar, DefaultCase);
@@ -486,14 +511,8 @@ bool ControlFlowFlattening::runOnFunction(Function &F) {
       continue;
     }
 
-    auto *Branch = dyn_cast<BranchInst>(Term);
-    if (!Branch)
-      fatalError(fmt::format("[{}] Weird '{}' is not a branch",
-                             ControlFlowFlattening::name().str(),
-                             ToString(*Term)));
-
-    if (Branch->isUnconditional()) {
-      BasicBlock *Target = Branch->getSuccessor(0);
+    if (auto *Branch = dyn_cast<UncondBrInst>(Term)) {
+      BasicBlock *Target = Branch->getSuccessor();
       auto ItEncId = SwitchEnc.find(Target);
       if (ItEncId == SwitchEnc.end())
         fatalError(fmt::format(
@@ -516,7 +535,7 @@ bool ControlFlowFlattening::runOnFunction(Function &F) {
       continue;
     }
 
-    if (Branch->isConditional()) {
+    if (auto *Branch = dyn_cast<CondBrInst>(Term)) {
       BasicBlock *TrueCase = Branch->getSuccessor(0);
       BasicBlock *FalseCase = Branch->getSuccessor(1);
 
@@ -560,6 +579,10 @@ bool ControlFlowFlattening::runOnFunction(Function &F) {
       Branch->eraseFromParent();
       continue;
     }
+
+    fatalError(fmt::format("[{}] Weird '{}' is not a branch",
+                           ControlFlowFlattening::name().str(),
+                           ToString(*Term)));
   }
 
   Changed = true;

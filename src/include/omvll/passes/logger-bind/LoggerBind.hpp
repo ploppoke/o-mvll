@@ -9,7 +9,7 @@
 
 namespace omvll {
 
-struct LoggerBind : llvm::PassInfoMixin<LoggerBind> {
+struct LoggerBind : llvm::OptionalPassInfoMixin<LoggerBind> {
   llvm::PreservedAnalyses run(llvm::Module &M,
                               llvm::ModuleAnalysisManager &MAM);
 };

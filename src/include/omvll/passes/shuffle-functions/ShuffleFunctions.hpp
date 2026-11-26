@@ -9,7 +9,7 @@
 
 namespace omvll {
 
-struct ShuffleFunctions : llvm::PassInfoMixin<ShuffleFunctions> {
+struct ShuffleFunctions : llvm::OptionalPassInfoMixin<ShuffleFunctions> {
   llvm::PreservedAnalyses run(llvm::Module &M,
                               llvm::ModuleAnalysisManager &FAM);
 };

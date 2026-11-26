@@ -31,7 +31,7 @@ struct ObfuscationConfig;
 class Jitter;
 
 // See https://obfuscator.re/omvll/passes/strings-encoding for details.
-struct StringEncoding : llvm::PassInfoMixin<StringEncoding> {
+struct StringEncoding : llvm::RequiredPassInfoMixin<StringEncoding> {
   using KeyBufferTy = std::vector<uint8_t>;
   using KeyIntTy = uint64_t;
   using KeyTy = std::variant<std::monostate, KeyBufferTy, KeyIntTy>;
@@ -55,7 +55,6 @@ struct StringEncoding : llvm::PassInfoMixin<StringEncoding> {
 
   llvm::PreservedAnalyses run(llvm::Module &M,
                               llvm::ModuleAnalysisManager &MAM);
-  static bool isRequired() { return true; }
 
   bool encodeStrings(llvm::Function &F, ObfuscationConfig &UserConfig);
   bool injectDecoding(llvm::Instruction &I, llvm::Use &Op,

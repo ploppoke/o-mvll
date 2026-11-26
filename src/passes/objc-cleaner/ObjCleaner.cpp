@@ -50,9 +50,6 @@ PreservedAnalyses ObjCleaner::run(Module &M, ModuleAnalysisManager &FAM) {
       }
     }
 
-    if (G.isNullValue() || G.isZeroValue())
-      continue;
-
     if (!(G.isConstant() && G.hasInitializer()))
       continue;
 

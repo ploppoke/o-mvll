@@ -30,18 +30,11 @@ endif()
 set(OMVLL_ABI "${OMVLL_DEFAULT_ABI}" CACHE STRING
   "Compiler ABI to build OMVLL against. Supported options are \"Apple\" and \"Android\". Defaults to ${OMVLL_DEFAULT_ABI}.")
 
-if(OMVLL_ABI STREQUAL "Apple")
-  set(LLVM_REQUIRED_VERSION 21.1.6 CACHE STRING
-    "Required LLVM version for the Apple ABI (matches Xcode 26.6 / clang 21)")
-elseif(OMVLL_ABI STREQUAL "Android")
-  set(LLVM_REQUIRED_VERSION 21.0.0 CACHE STRING
-    "Required LLVM version for the Android NDK ABI")
-else()
-  # TODO: switch Linux build to release NDK
-  set(LLVM_REQUIRED_VERSION 21.0.0)
-endif()
+# Use the explicit required/optional pass mixins from LLVM main.
+set(LLVM_MINIMUM_VERSION 24.0.0 CACHE STRING
+  "Minimum supported LLVM version")
 
-find_package(LLVM ${LLVM_REQUIRED_VERSION} REQUIRED CONFIG NO_DEFAULT_PATH)
+find_package(LLVM REQUIRED CONFIG NO_DEFAULT_PATH)
 
 set(PYTHON_VERSION "3" CACHE STRING "Python version")
 find_package(Python3 COMPONENTS Development Interpreter)
@@ -54,8 +47,8 @@ message(STATUS "Python lib:     ${Python3_LIBRARIES}")
 message(STATUS "Python include: ${Python3_INCLUDE_DIRS}")
 message(STATUS "Python interpreter: ${Python3_EXECUTABLE}")
 
-if(NOT "${LLVM_PACKAGE_VERSION}" VERSION_EQUAL "${LLVM_REQUIRED_VERSION}")
-  message(FATAL_ERROR "Found LLVM ${LLVM_PACKAGE_VERSION}, but need LLVM ${LLVM_REQUIRED_VERSION}")
+if("${LLVM_PACKAGE_VERSION}" VERSION_LESS "${LLVM_MINIMUM_VERSION}")
+  message(FATAL_ERROR "Found LLVM ${LLVM_PACKAGE_VERSION}, but need at least LLVM ${LLVM_MINIMUM_VERSION}")
 endif()
 
 message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
@@ -193,9 +186,11 @@ list(APPEND LLVM_LIBS_DEP
     ARMAsmParser
     AArch64CodeGen
     AArch64AsmParser
-    X86CodeGen
-    X86AsmParser
 )
+if("X86" IN_LIST LLVM_TARGETS_TO_BUILD)
+  list(APPEND LLVM_LIBS_DEP X86CodeGen X86AsmParser)
+  target_compile_definitions(OMVLL PRIVATE OMVLL_HAS_X86_TARGET)
+endif()
 
 if(APPLE)
   list(APPEND
