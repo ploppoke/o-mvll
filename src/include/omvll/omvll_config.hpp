@@ -39,6 +39,7 @@ struct OMVLLConfig {
   std::map<Pass, std::set<Phase>> PassPhases;
   std::vector<std::string> GlobalModuleExclude;
   std::vector<std::string> GlobalFunctionExclude;
+  std::vector<std::string> LocalByteArraySections;
   std::string OutputFolder;
   bool ShuffleFunctions;
   bool InlineJniWrappers;

@@ -196,6 +196,17 @@ void OMVLLCtor(py::module_ &m) {
                    :type: list[str]
                    )delim")
 
+      .def_readwrite("local_byte_array_sections",
+                     &OMVLLConfig::LocalByteArraySections,
+                     R"delim(
+                   Section prefixes marking constant byte arrays for local
+                   string encoding. Only private/internal arrays used as a
+                   direct argument at a single call site are eligible.
+                   ``obfuscate_string`` receives all bytes, including any
+                   terminator, and must return ``StringEncOptLocal()``.
+                   The prefix list defaults to empty.
+                   )delim")
+
       .def_readwrite("probability_seed", &OMVLLConfig::ProbabilitySeed,
                      R"delim(
                    Seed for the random number generator used by probability-based passes

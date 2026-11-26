@@ -30,6 +30,7 @@
 #include "omvll/PyConfig.hpp"
 #include "omvll/jitter.hpp"
 #include "omvll/log.hpp"
+#include "omvll/omvll_config.hpp"
 #include "omvll/passes/Metadata.hpp"
 #include "omvll/passes/arithmetic/Arithmetic.hpp"
 #include "omvll/passes/string-encoding/StringEncoding.hpp"
@@ -58,6 +59,13 @@ inline bool isEligible(const ConstantDataSequential &CDS) {
 static StringRef safeGetString(const ConstantDataSequential &CDS) {
   return CDS.isCString() ? CDS.getAsCString()
                          : CDS.getRawDataValues().drop_back();
+}
+
+static bool isMarkedByteArray(const GlobalVariable &G) {
+  return G.hasSection() &&
+         llvm::any_of(Config.LocalByteArraySections, [&](StringRef Prefix) {
+           return !Prefix.empty() && G.getSection().starts_with(Prefix);
+         });
 }
 
 inline bool isSkip(const StringEncodingOpt &EncInfo) {
@@ -192,6 +200,8 @@ CallInst *StringEncoding::createDecodingTrampoline(
     ClearBuffer =
         new GlobalVariable(*M, BufferTy, false, GlobalValue::InternalLinkage,
                            Constant::getNullValue(BufferTy));
+    if (isMarkedByteArray(G))
+      ClearBuffer->setAlignment(G.getAlign());
     // For this global variable, use the most recent buffer for decoding.
     OriginalToDecoded[&G] = ClearBuffer;
   }
@@ -338,7 +348,8 @@ void StringEncoding::collectEligibleStrings(
   } else if (auto *GV = dyn_cast<GlobalVariable>(C)) {
     if (isEligible(*GV)) {
       if (auto *CDS = dyn_cast<ConstantDataSequential>(GV->getInitializer())) {
-        if (isEligible(*CDS) || getEncoding(*GV) != nullptr)
+        if (!isMarkedByteArray(*GV) &&
+            (isEligible(*CDS) || getEncoding(*GV) != nullptr))
           Out.emplace_back(GV);
       } else if (auto *Init = GV->getInitializer())
         collectEligibleStrings(Init, Out);
@@ -603,6 +614,25 @@ bool StringEncoding::encodeStrings(Function &F, ObfuscationConfig &UserConfig) {
         // The global variable is already encoded.
         // Let's check if we should insert a decoding stub.
         Changed |= injectDecoding(I, Op, *G, *Data, *EI);
+        continue;
+      }
+
+      if (isMarkedByteArray(*G)) {
+        const auto *Call = dyn_cast<CallInst>(&I);
+        if (!isa<ConstantDataArray>(Data) ||
+            !Data->getElementType()->isIntegerTy(8) || !G->hasLocalLinkage() ||
+            G->isExternallyInitialized() || G->getAddressSpace() != 0 ||
+            !G->hasOneUse() || Op.get() != G || !Call || !Call->isArgOperand(&Op))
+          continue;
+
+        auto Opt =
+            UserConfig.obfuscateString(M, &F, Data->getRawDataValues().str());
+        if (!std::holds_alternative<StringEncOptLocal>(Opt))
+          continue;
+        Changed |= processLocal(I, Op, *G, *Data);
+        // A mergeable literal section can also contain plaintext from other
+        // TUs. Keep ciphertext out of it.
+        G->setSection("");
         continue;
       }
 

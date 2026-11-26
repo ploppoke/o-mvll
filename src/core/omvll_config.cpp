@@ -19,6 +19,7 @@ void initDefaultConfig() {
   Config.ShuffleFunctions = true;
   Config.GlobalModuleExclude.clear();
   Config.GlobalFunctionExclude.clear();
+  Config.LocalByteArraySections.clear();
   Config.ProbabilitySeed = 1;
   Config.OutputFolder = "";
 }
