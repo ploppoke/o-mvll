@@ -18,7 +18,7 @@ class Jitter;
 
 // Frida Anti-Hooking.
 // See https://obfuscator.re/omvll/passes/anti-hook/ for details.
-struct AntiHook : llvm::PassInfoMixin<AntiHook> {
+struct AntiHook : llvm::OptionalPassInfoMixin<AntiHook> {
   llvm::PreservedAnalyses run(llvm::Module &M,
                               llvm::ModuleAnalysisManager &FAM);
 

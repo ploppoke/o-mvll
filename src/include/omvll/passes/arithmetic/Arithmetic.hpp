@@ -25,7 +25,7 @@ class BinaryOperator;
 namespace omvll {
 
 // See https://obfuscator.re/omvll/passes/arithmetic/ for details.
-struct Arithmetic : llvm::PassInfoMixin<Arithmetic> {
+struct Arithmetic : llvm::OptionalPassInfoMixin<Arithmetic> {
   llvm::PreservedAnalyses run(llvm::Module &M,
                               llvm::ModuleAnalysisManager &FAM);
   bool runOnBasicBlock(llvm::BasicBlock &BB,

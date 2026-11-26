@@ -11,7 +11,8 @@ namespace omvll {
 
 // The classical control-flow flattening pass.
 // See https://obfuscator.re/omvll/passes/control-flow-flattening/ for details.
-struct ControlFlowFlattening : llvm::PassInfoMixin<ControlFlowFlattening> {
+struct ControlFlowFlattening
+    : llvm::OptionalPassInfoMixin<ControlFlowFlattening> {
   llvm::PreservedAnalyses run(llvm::Module &M,
                               llvm::ModuleAnalysisManager &FAM);
   bool runOnFunction(llvm::Function &F);

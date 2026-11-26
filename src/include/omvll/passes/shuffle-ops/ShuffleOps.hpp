@@ -15,7 +15,7 @@ namespace omvll {
 // sort (Kahn's algorithm). The resulting order is semantically equivalent to
 // the original but harder to follow statically, adding obfuscation depth on
 // top of the other passes.
-struct ShuffleOps : llvm::PassInfoMixin<ShuffleOps> {
+struct ShuffleOps : llvm::OptionalPassInfoMixin<ShuffleOps> {
   llvm::PreservedAnalyses run(llvm::Module &M,
                               llvm::ModuleAnalysisManager &MAM);
   bool runOnFunction(llvm::Function &F, const ShuffleOpsOpt &Opt);

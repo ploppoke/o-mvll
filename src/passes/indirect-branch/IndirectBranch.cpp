@@ -43,7 +43,7 @@ bool IndirectBranch::process(Function &F, const DataLayout &DL,
   // Gather jumps and switch instructions.
   for (BasicBlock &BB : F) {
     auto *TI = BB.getTerminator();
-    if (isa<BranchInst>(TI) || isa<SwitchInst>(TI)) {
+    if (isa<UncondBrInst, CondBrInst, SwitchInst>(TI)) {
       // Skip wide terminators (e.g. large switch tables) to bound the
       // select-chain code-size expansion. 0 means no limit.
       if (MaxBranches && TI->getNumSuccessors() > MaxBranches)
@@ -83,11 +83,6 @@ bool IndirectBranch::process(Function &F, const DataLayout &DL,
     JumpTable->setComdat(C);
 
   DenseMap<BasicBlock *, unsigned> BlockToIdx;
-  auto Cleanup = make_scope_exit([&]() {
-    SuccBlocks.clear();
-    BlockToIdx.clear();
-  });
-
   for (auto [Idx, C] : enumerate(ShuffledBlockAddrs))
     BlockToIdx[cast<BlockAddress>(C)->getBasicBlock()] = Idx;
 
@@ -111,13 +106,12 @@ bool IndirectBranch::process(Function &F, const DataLayout &DL,
                                        {Zero, ConstantInt::get(IndexTy, Idx)});
     };
 
-    if (auto *BI = dyn_cast<BranchInst>(TI)) {
-      if (BI->isConditional())
-        LoadFrom = Builder.CreateSelect(BI->getCondition(),
-                                        CreateGEPForIdx(BI->getSuccessor(0)),
-                                        CreateGEPForIdx(BI->getSuccessor(1)));
-      else
-        LoadFrom = CreateGEPForIdx(BI->getSuccessor(0));
+    if (auto *BI = dyn_cast<CondBrInst>(TI)) {
+      LoadFrom = Builder.CreateSelect(BI->getCondition(),
+                                      CreateGEPForIdx(BI->getSuccessor(0)),
+                                      CreateGEPForIdx(BI->getSuccessor(1)));
+    } else if (auto *BI = dyn_cast<UncondBrInst>(TI)) {
+      LoadFrom = CreateGEPForIdx(BI->getSuccessor());
     } else if (auto *SI = dyn_cast<SwitchInst>(TI)) {
       LoadFrom = CreateGEPForIdx(SI->getDefaultDest());
 

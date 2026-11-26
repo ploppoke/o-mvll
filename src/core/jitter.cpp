@@ -62,8 +62,10 @@ void Jitter::initializeArchTarget() {
       initializeARMAssembler();
     else if (TT.isAArch64())
       initializeAArch64Assembler();
+#ifdef OMVLL_HAS_X86_TARGET
     else if (TT.isX86())
       initializeX86Assembler();
+#endif
     else
       fatalError(fmt::format("Unsupported arch type: {}",
                              Triple::getArchTypeName(TT.getArch())));
@@ -87,6 +89,7 @@ void Jitter::initializeAArch64Assembler() {
   LLVMInitializeAArch64AsmPrinter();
 }
 
+#ifdef OMVLL_HAS_X86_TARGET
 void Jitter::initializeX86Assembler() {
   LLVMInitializeX86Target();
   LLVMInitializeX86TargetMC();
@@ -94,6 +97,7 @@ void Jitter::initializeX86Assembler() {
   LLVMInitializeX86AsmParser();
   LLVMInitializeX86AsmPrinter();
 }
+#endif
 
 std::unique_ptr<orc::LLJIT> Jitter::compile(Module &M) {
   static ExitOnError ExitOnErr;

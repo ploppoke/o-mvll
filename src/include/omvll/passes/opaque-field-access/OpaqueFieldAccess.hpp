@@ -21,7 +21,7 @@ class ConstantExpr;
 namespace omvll {
 
 // See https://obfuscator.re/omvll/passes/opaque-fields-access for details.
-struct OpaqueFieldAccess : llvm::PassInfoMixin<OpaqueFieldAccess> {
+struct OpaqueFieldAccess : llvm::OptionalPassInfoMixin<OpaqueFieldAccess> {
   llvm::PreservedAnalyses run(llvm::Module &M,
                               llvm::ModuleAnalysisManager &FAM);
   bool shouldRun(llvm::BasicBlock &BB);

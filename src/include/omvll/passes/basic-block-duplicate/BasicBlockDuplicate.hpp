@@ -9,7 +9,7 @@
 
 namespace omvll {
 
-struct BasicBlockDuplicate : llvm::PassInfoMixin<BasicBlockDuplicate> {
+struct BasicBlockDuplicate : llvm::OptionalPassInfoMixin<BasicBlockDuplicate> {
   llvm::PreservedAnalyses run(llvm::Module &M,
                               llvm::ModuleAnalysisManager &MAM);
 

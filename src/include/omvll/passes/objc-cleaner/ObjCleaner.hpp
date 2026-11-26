@@ -16,7 +16,7 @@ namespace omvll {
 
 // This pass aims at mangling/obfuscating Objective-C symbols.
 // Note: this pass is incomplete.
-struct ObjCleaner : llvm::PassInfoMixin<ObjCleaner> {
+struct ObjCleaner : llvm::OptionalPassInfoMixin<ObjCleaner> {
   llvm::PreservedAnalyses run(llvm::Module &M,
                               llvm::ModuleAnalysisManager &FAM);
   bool runGlobalVariable(llvm::Function &F);
