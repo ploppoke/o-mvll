@@ -20,6 +20,7 @@ void initDefaultConfig() {
   Config.GlobalModuleExclude.clear();
   Config.GlobalFunctionExclude.clear();
   Config.LocalByteArraySections.clear();
+  Config.EncryptTables.clear();
   Config.ProbabilitySeed = 1;
   Config.OutputFolder = "";
 }
@@ -27,6 +28,7 @@ void initDefaultConfig() {
 static std::optional<Pass> nameToPass(const std::string &InternalName) {
   static const std::unordered_map<std::string, Pass> Table = {
       {"omvll::AntiHook",              Pass::AntiHook},
+      {"omvll::TableEncryption",       Pass::TableEncryption},
       {"omvll::StringEncoding",        Pass::StringEncoding},
       {"omvll::OpaqueFieldAccess",     Pass::OpaqueFieldAccess},
       {"omvll::ControlFlowFlattening", Pass::ControlFlowFlattening},

@@ -57,9 +57,79 @@ void initPythonpath() {
 #endif
 }
 
+static TableFieldKind parseTableFieldKind(const std::string &Kind) {
+  if (Kind == "scalar")
+    return TableFieldKind::Scalar;
+  if (Kind == "inline_string")
+    return TableFieldKind::InlineString;
+  if (Kind == "pointer_string")
+    return TableFieldKind::PointerString;
+  throw py::value_error("Unknown table field kind: " + Kind);
+}
+
+static std::string tableFieldKindToStr(TableFieldKind Kind) {
+  switch (Kind) {
+  case TableFieldKind::Scalar:
+    return "scalar";
+  case TableFieldKind::InlineString:
+    return "inline_string";
+  case TableFieldKind::PointerString:
+    return "pointer_string";
+  }
+  return "scalar";
+}
+
+static TableFieldSpec parseTableFieldSpec(py::handle Obj) {
+  if (py::isinstance<TableFieldSpec>(Obj))
+    return Obj.cast<TableFieldSpec>();
+  if (!py::isinstance<py::dict>(Obj))
+    throw py::value_error("Table field spec must be a dict or TableFieldSpec");
+  py::dict D = Obj.cast<py::dict>();
+  TableFieldSpec F;
+  if (!D.contains("kind") || !D.contains("offset") || !D.contains("size") ||
+      !D.contains("key"))
+    throw py::value_error(
+        "Table field dict requires 'kind', 'offset', 'size', and 'key'");
+  F.Kind = parseTableFieldKind(D["kind"].cast<std::string>());
+  F.Offset = D["offset"].cast<uint32_t>();
+  F.Size = D["size"].cast<uint32_t>();
+  F.Key = D["key"].cast<uint32_t>();
+  if (D.contains("slots") && !D["slots"].is_none())
+    F.Slots = D["slots"].cast<uint32_t>();
+  if (D.contains("extra_strings") && !D["extra_strings"].is_none())
+    F.ExtraStrings = D["extra_strings"].cast<std::vector<std::string>>();
+  if (F.Kind == TableFieldKind::Scalar &&
+      F.Size != 1 && F.Size != 2 && F.Size != 4)
+    throw py::value_error("Scalar field 'size' must be 1, 2, or 4");
+  if (F.Kind != TableFieldKind::Scalar &&
+      (F.Slots == 0 || (F.Slots & (F.Slots - 1)) != 0))
+    throw py::value_error("String field 'slots' must be a power of 2");
+  return F;
+}
+
+static TableEncryptSpec parseTableEncryptSpec(py::handle Obj) {
+  if (py::isinstance<TableEncryptSpec>(Obj))
+    return Obj.cast<TableEncryptSpec>();
+  if (!py::isinstance<py::dict>(Obj))
+    throw py::value_error("Table spec must be a dict or TableEncryptSpec");
+  py::dict D = Obj.cast<py::dict>();
+  TableEncryptSpec T;
+  if (!D.contains("name") || !D.contains("stride") || !D.contains("seed") ||
+      !D.contains("fields"))
+    throw py::value_error(
+        "Table dict requires 'name', 'stride', 'seed', and 'fields'");
+  T.GlobalName = D["name"].cast<std::string>();
+  T.ElementStride = D["stride"].cast<uint32_t>();
+  T.Seed = D["seed"].cast<uint32_t>();
+  if (D.contains("ring_section") && !D["ring_section"].is_none())
+    T.RingSection = D["ring_section"].cast<std::string>();
+  for (py::handle FieldObj : D["fields"].cast<py::sequence>())
+    T.Fields.push_back(parseTableFieldSpec(FieldObj));
+  return T;
+}
+
 void OMVLLCtor(py::module_ &m) {
   initDefaultConfig();
-
   m.attr("LLVM_VERSION")  = OMVLL_LLVM_VERSION_STRING;
   m.attr("OMVLL_VERSION") = OMVLL_VERSION;
   m.attr("OMVLL_VERSION_FULL") = "OMVLL Version: " OMVLL_VERSION " / " OMVLL_LLVM_VERSION_STRING
@@ -132,6 +202,7 @@ void OMVLLCtor(py::module_ &m) {
     )delim")
         .value("AntiHook",              Pass::AntiHook)
         .value("FunctionOutline",       Pass::FunctionOutline)
+        .value("TableEncryption",       Pass::TableEncryption)
         .value("StringEncoding",        Pass::StringEncoding)
         .value("OpaqueFieldAccess",     Pass::OpaqueFieldAccess)
         .value("BasicBlockDuplicate",   Pass::BasicBlockDuplicate)
@@ -146,6 +217,28 @@ void OMVLLCtor(py::module_ &m) {
         .value("ShuffleFunctions",      Pass::ShuffleFunctions)
         .value("ShuffleOps",            Pass::ShuffleOps);
   }
+
+  py::class_<TableFieldSpec>(m, "TableFieldSpec")
+      .def(py::init<>())
+      .def_property(
+          "kind",
+          [](const TableFieldSpec &F) { return tableFieldKindToStr(F.Kind); },
+          [](TableFieldSpec &F, const std::string &K) {
+            F.Kind = parseTableFieldKind(K);
+          })
+      .def_readwrite("offset", &TableFieldSpec::Offset)
+      .def_readwrite("size", &TableFieldSpec::Size)
+      .def_readwrite("slots", &TableFieldSpec::Slots)
+      .def_readwrite("key", &TableFieldSpec::Key)
+      .def_readwrite("extra_strings", &TableFieldSpec::ExtraStrings);
+
+  py::class_<TableEncryptSpec>(m, "TableEncryptSpec")
+      .def(py::init<>())
+      .def_readwrite("name", &TableEncryptSpec::GlobalName)
+      .def_readwrite("stride", &TableEncryptSpec::ElementStride)
+      .def_readwrite("seed", &TableEncryptSpec::Seed)
+      .def_readwrite("ring_section", &TableEncryptSpec::RingSection)
+      .def_readwrite("fields", &TableEncryptSpec::Fields);
 
   py::class_<OMVLLConfig>(m, "OMVLLConfig",
                           R"delim(
@@ -205,8 +298,24 @@ void OMVLLCtor(py::module_ &m) {
                    ``obfuscate_string`` receives all bytes, including any
                    terminator, and must return ``StringEncOptLocal()``.
                    The prefix list defaults to empty.
-                   )delim")
+                  )delim")
 
+      .def_property(
+          "encrypt_tables",
+          [](const OMVLLConfig &Cfg) { return Cfg.EncryptTables; },
+          [](OMVLLConfig &Cfg, py::object Value) {
+            Cfg.EncryptTables.clear();
+            if (Value.is_none())
+              return;
+            for (py::handle Item : Value.cast<py::sequence>())
+              Cfg.EncryptTables.push_back(parseTableEncryptSpec(Item));
+          },
+          R"delim(
+                  List of constant struct tables to encrypt in-place at compile time.
+                  Accepts a list of dicts or :py:class:`~omvll.TableEncryptSpec` objects.
+
+                  Default: ``[]``.
+                  )delim")
       .def_readwrite("probability_seed", &OMVLLConfig::ProbabilitySeed,
                      R"delim(
                    Seed for the random number generator used by probability-based passes

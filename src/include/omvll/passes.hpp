@@ -23,3 +23,4 @@
 #include "omvll/passes/opaque-constants/OpaqueConstants.hpp"
 #include "omvll/passes/opaque-field-access/OpaqueFieldAccess.hpp"
 #include "omvll/passes/string-encoding/StringEncoding.hpp"
+#include "omvll/passes/table-encryption/TableEncryption.hpp"

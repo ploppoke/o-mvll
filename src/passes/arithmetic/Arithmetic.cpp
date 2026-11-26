@@ -182,6 +182,8 @@ struct ArithmeticVisitor
 };
 
 bool Arithmetic::isSupported(const BinaryOperator &Op) {
+  if (Op.getType()->getScalarSizeInBits() <= 1)
+    return false;
   const auto Opcode = Op.getOpcode();
   return Opcode == Instruction::Add || Opcode == Instruction::Sub ||
          Opcode == Instruction::And || Opcode == Instruction::Xor ||

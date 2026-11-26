@@ -34,6 +34,8 @@ static const std::vector<std::pair<std::string, PassFactory>> &getPassRegistry()
        [](ModulePassManager &M) { M.addPass(omvll::AntiHook()); }},
       {omvll::FunctionOutline::name().str(),
        [](ModulePassManager &M) { M.addPass(omvll::FunctionOutline()); }},
+      {omvll::TableEncryption::name().str(),
+       [](ModulePassManager &M) { M.addPass(omvll::TableEncryption()); }},
       {omvll::StringEncoding::name().str(),
        [](ModulePassManager &M) { M.addPass(omvll::StringEncoding()); }},
       {omvll::OpaqueFieldAccess::name().str(),

@@ -554,6 +554,11 @@ bool StringEncoding::encodeStrings(Function &F, ObfuscationConfig &UserConfig) {
 
   for (Instruction &I : make_early_inc_range(instructions(F))) {
     assert(!isa<PHINode>(I) && "Found phi previously demoted?");
+    if (auto *CB = dyn_cast<CallBase>(&I)) {
+      if (Function *Callee = CB->getCalledFunction();
+          Callee && Callee->getName().starts_with("__omvll_decode_"))
+        continue;
+    }
 
     for (Use &Op : make_early_inc_range(I.operands())) {
       auto *G = dyn_cast<GlobalVariable>(Op->stripPointerCasts());

@@ -228,7 +228,10 @@ PreservedAnalyses OpaqueConstants::run(Module &M, ModuleAnalysisManager &FAM) {
   for (Function &F : M) {
     bool ChangedFunction = false;
     if (isFunctionGloballyExcluded(&F) || F.isDeclaration() ||
-        F.isIntrinsic() || F.getName().starts_with("__omvll"))
+        F.isIntrinsic() ||
+        (F.getName().starts_with("__omvll") &&
+         !F.getName().starts_with("__omvll_decode_inline_") &&
+         !F.getName().starts_with("__omvll_decode_ptr_")))
       continue;
 
     ScopedTrace TracePassFunc(F.getName(), name());
