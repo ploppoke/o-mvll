@@ -65,6 +65,7 @@ struct OMVLLConfig {
   std::vector<std::string> GlobalModuleExclude;
   std::vector<std::string> GlobalFunctionExclude;
   std::vector<std::string> LocalByteArraySections;
+  std::string LocalDecodeSection;
   std::vector<TableEncryptSpec> EncryptTables;
   std::string OutputFolder;
   bool ShuffleFunctions;

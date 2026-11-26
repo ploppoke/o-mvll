@@ -200,9 +200,10 @@ CallInst *StringEncoding::createDecodingTrampoline(
     ClearBuffer =
         new GlobalVariable(*M, BufferTy, false, GlobalValue::InternalLinkage,
                            Constant::getNullValue(BufferTy));
+    if (!Config.LocalDecodeSection.empty())
+      ClearBuffer->setSection(Config.LocalDecodeSection);
     if (isMarkedByteArray(G))
       ClearBuffer->setAlignment(G.getAlign());
-    // For this global variable, use the most recent buffer for decoding.
     OriginalToDecoded[&G] = ClearBuffer;
   }
 
@@ -280,7 +281,8 @@ CallInst *StringEncoding::createDecodingTrampoline(
   GlobalVariable *NeedDecode =
       new GlobalVariable(*M, BoolType, false, GlobalValue::InternalLinkage,
                          ConstantInt::getFalse(BoolType));
-
+  if (!Config.LocalDecodeSection.empty())
+    NeedDecode->setSection(Config.LocalDecodeSection);
   It = IRB.GetInsertPoint();
   auto *WrapperType =
       FunctionType::get(IRB.getVoidTy(),

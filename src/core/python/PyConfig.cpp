@@ -300,6 +300,13 @@ void OMVLLCtor(py::module_ &m) {
                    The prefix list defaults to empty.
                   )delim")
 
+      .def_readwrite("local_decode_section",
+                     &OMVLLConfig::LocalDecodeSection,
+                     R"delim(
+                   Optional section name for local string decode buffers and flags
+                   (e.g. ``".sbss"`` to place them in EWRAM instead of IWRAM ``.bss``).
+                   Defaults to empty.
+                  )delim")
       .def_property(
           "encrypt_tables",
           [](const OMVLLConfig &Cfg) { return Cfg.EncryptTables; },

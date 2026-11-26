@@ -20,6 +20,7 @@ void initDefaultConfig() {
   Config.GlobalModuleExclude.clear();
   Config.GlobalFunctionExclude.clear();
   Config.LocalByteArraySections.clear();
+  Config.LocalDecodeSection.clear();
   Config.EncryptTables.clear();
   Config.ProbabilitySeed = 1;
   Config.OutputFolder = "";
